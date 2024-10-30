@@ -41,6 +41,10 @@
 #include <algorithm>
 #include <string>
 #include <vector>
+#include <iostream>
+#include <iomanip>
+
+using namespace std;
 
 //------------------------------------------------------------------------------
 // FlowStats
@@ -52,17 +56,23 @@ public:
     FlowStats()
     {
     }
-    FlowStats(const FlowInfo& info, uint64_t first_pkt_len)
+    FlowStats(const FlowInfo& info, uint64_t first_pkt_len, const Packet& pktIn)
     {
         m_flow_info = info;
-        update_stats(first_pkt_len);
+        update_stats(first_pkt_len, pktIn);
     }
     FlowInfo& get_flow_info()
     {
         return m_flow_info;
     }
-    void update_stats(uint64_t new_pkt_len)
+    void update_stats(uint64_t new_pkt_len, const Packet& pktIn)
     {
+        if (m_npackets == 0) {
+            first_packet_time = pktIn.pcap_timestamp_to_seconds();
+            last_packet_time = pktIn.pcap_timestamp_to_seconds();
+        } else {
+            last_packet_time = pktIn.pcap_timestamp_to_seconds();
+        }
         m_npackets++;
         m_nbytes += new_pkt_len;
     }
@@ -76,12 +86,27 @@ public:
         return m_nbytes;
     }
 
+    double get_duration() {
+        // cout << "last_packet_time: " << setprecision(19) << last_packet_time << " first_packet_time: " << first_packet_time << endl;
+        return last_packet_time - first_packet_time;
+    }
+
+    double get_first_packet_time() {
+        return first_packet_time;
+    }
+
 private:
     // identifier of the flow:
     FlowInfo m_flow_info;
     // stats about this flow:
     uint64_t m_npackets = 0;
     uint64_t m_nbytes = 0;
+    uint64_t m_nspackets = 0;
+    uint64_t m_nsbytes = 0;
+    uint64_t m_nrpackets = 0;
+    uint64_t m_nrbytes = 0;
+    double first_packet_time = 0;
+    double last_packet_time = 0;
 };
 
 typedef std::unordered_map<flow_hash_t /* key */, FlowStats /* value */> traffic_stats_by_flow_t;
@@ -121,6 +146,7 @@ private:
     uint64_t m_num_input_pkts = 0;
     uint64_t m_num_parse_failed_pkts = 0;
     traffic_stats_by_flow_t m_conn_map;
+    double first_packet_time = 0;
 };
 
 #endif // TRAFFIC_STATS_PROCESSOR_H_

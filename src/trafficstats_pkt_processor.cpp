@@ -83,10 +83,15 @@ bool TrafficStatsPacketProcessor::process_packet(const Packet& pktIn, Packet& pk
     traffic_stats_by_flow_t::iterator itr = m_conn_map.find(hash);
     if (itr != m_conn_map.end()) {
         // This flow is already present -- just update its stats
-        itr->second.update_stats(pktIn.len());
+        itr->second.update_stats(pktIn.len(), pktIn);
     } else {
+        // Se for o primeiro fluxo a ser adicionado, seta o tempo do primeiro pacote
+        if (m_conn_map.size() == 0) {
+            first_packet_time = pktIn.pcap_timestamp_to_seconds();
+        }
+
         // This is the first packet of a new flow -- add it to the map
-        m_conn_map.insert(std::make_pair(hash, FlowStats(flow_id, pktIn.len())));
+        m_conn_map.insert(std::make_pair(hash, FlowStats(flow_id, pktIn.len(), pktIn)));
     }
 
     return true;
@@ -128,30 +133,69 @@ bool TrafficStatsPacketProcessor::post_processing(const std::string& /* infile *
             break;
         }
 
-        if (nflow == 0) {
-            std::string csv_header = "flow_num,num_pkts,%pkts,num_bytes,%bytes,flow_hash,ip_src,ip_dst,ip_proto,port_src,port_dst"; // all columns
-            if (fout.is_open()) {
-                fout << csv_header << std::endl;
-            } else {
-                printf_normal("Traffic report in CSV format:\n%s\n", csv_header.c_str());
-            }
-        }
+        // if (nflow == 0) {
+        //     // std::string csv_header = "flow_num,num_pkts,%pkts,num_bytes,%bytes,flow_hash,ip_src,ip_dst,ip_proto,port_src,port_dst,duration"; // all columns
+        //     if (fout.is_open()) {
+        //         fout << csv_header << std::endl;
+        //     } else {
+        //         printf_normal("Traffic report in CSV format:\n%s\n", csv_header.c_str());
+        //     }
+        // }
 
         // prepare CSV line
-        double pkt_percentage = ((double)(conn_top.second.get_packets()) / total_pkts) * 100;
-        double bytes_percentage = ((double)(conn_top.second.get_bytes()) / total_bytes) * 100;
-        snprintf(csv_line, sizeof(csv_line), "%u,%lu,%.2f,%lu,%.2f,%lX,%s,%s,%d,%d,%d\n",
-            nflow,
+        // double pkt_percentage = ((double)(conn_top.second.get_packets()) / total_pkts) * 100;
+        // double bytes_percentage = ((double)(conn_top.second.get_bytes()) / total_bytes) * 100;
+        // snprintf(csv_line, sizeof(csv_line), "%u,%lu,%.2f,%lu,%.2f,%lX,%s,%s,%d,%d,%d,%4ld\n",
+        //     nflow,
+        //     conn_top.second.get_packets(),
+        //     pkt_percentage,
+        //     conn_top.second.get_bytes(),
+        //     bytes_percentage,
+        //     conn_top.second.get_flow_info().get_flow_hash(),
+        //     conn_top.second.get_flow_info().m_ip_src.toString().c_str(),
+        //     conn_top.second.get_flow_info().m_ip_dst.toString().c_str(),
+        //     conn_top.second.get_flow_info().m_ip_proto,
+        //     conn_top.second.get_flow_info().m_port_src,
+        //     conn_top.second.get_flow_info().m_port_dst,
+        //     conn_top.second.get_duration()
+        //     );
+
+        // IP:port string src
+        std::string ip_port_src = conn_top.second.get_flow_info().m_ip_src.toString();
+        ip_port_src += ":";
+        ip_port_src += std::to_string(conn_top.second.get_flow_info().m_port_src);
+
+        // IP:port string dst
+        std::string ip_port_dst = conn_top.second.get_flow_info().m_ip_dst.toString();
+        ip_port_dst += ":";
+        ip_port_dst += std::to_string(conn_top.second.get_flow_info().m_port_dst);
+
+        // Duração usando virgula
+        std::string duration_str = std::to_string(conn_top.second.get_duration());
+        size_t pos = duration_str.find(".");
+        if (pos != std::string::npos) {
+            duration_str.replace(pos, 1, ",");
+        }
+
+        // Relative time
+        std::string relative_time_str = std::to_string(conn_top.second.get_first_packet_time() - first_packet_time);
+        size_t pos2 = relative_time_str.find(".");
+        if (pos2 != std::string::npos) {
+            relative_time_str.replace(pos2, 1, ",");
+        }
+
+        snprintf(csv_line, sizeof(csv_line), "%s <-> %s %10lu %lu bytes %10lu %lu bytes %10lu %lu bytes %s %s\n",
+            ip_port_src.c_str(),
+            ip_port_dst.c_str(),
+            (long unsigned int) 0,
+            (long unsigned int) 0,
+            (long unsigned int) 0,
+            (long unsigned int) 0,
             conn_top.second.get_packets(),
-            pkt_percentage,
             conn_top.second.get_bytes(),
-            bytes_percentage,
-            conn_top.second.get_flow_info().get_flow_hash(),
-            conn_top.second.get_flow_info().m_ip_src.toString().c_str(),
-            conn_top.second.get_flow_info().m_ip_dst.toString().c_str(),
-            conn_top.second.get_flow_info().m_ip_proto,
-            conn_top.second.get_flow_info().m_port_src,
-            conn_top.second.get_flow_info().m_port_dst);
+            relative_time_str.c_str(),
+            duration_str.c_str()
+            );
 
         // write output
         if (fout.is_open()) {

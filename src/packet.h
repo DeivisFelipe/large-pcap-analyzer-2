@@ -37,6 +37,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
+#include <iostream>
 
 // libpcap dependency:
 // NOTE: in version 1.7.x there is no pcap/pcap.h, just a pcap.h apparently:
@@ -198,6 +199,15 @@ public:
             m_pcap_header->ts.tv_sec++;
             m_pcap_header->ts.tv_usec -= 1000000;
         }
+    }
+
+    void printa_header() const
+    {
+        printf("Packet header: caplen=%d, len=%d, ts=%ld.%06ld\n",
+            m_pcap_header->caplen, m_pcap_header->len,
+            m_pcap_header->ts.tv_sec, m_pcap_header->ts.tv_usec);
+        // Printa o data
+        std::cout << m_pcap_packet << std::endl;
     }
 
 private:
