@@ -40,6 +40,10 @@
 #include <linux/tcp.h>
 #include <linux/udp.h>
 
+#include <iostream>
+
+using namespace std;
+
 //------------------------------------------------------------------------------
 // Static Functions
 //------------------------------------------------------------------------------
@@ -186,28 +190,29 @@ ParserRetCode_t get_ip_start_offset(const Packet& pkt, int* offsetOut,
 {
     unsigned int offset = 0;
 
+    // Tirei pois nem sempre temos um pacote ethernet
+
     // parse Ethernet layer
 
-    if (UNLIKELY(pkt.len() < sizeof(struct ether_header)))
-        return GPRC_TOO_SHORT_PKT; // Packet too short
+    // if (UNLIKELY(pkt.len() < sizeof(struct ether_header)))
+    //     return GPRC_TOO_SHORT_PKT; // Packet too short
 
-    const struct ether_header* ehdr = (const struct ether_header*)pkt.data();
-    uint16_t eth_type = ntohs(ehdr->ether_type);
-    offset = sizeof(struct ether_header);
+    // const struct ether_header* ehdr = (const struct ether_header*)pkt.data();
+    // uint16_t eth_type = ntohs(ehdr->ether_type);
+    // offset = sizeof(struct ether_header);
 
-    // parse VLAN tags
+    // // parse VLAN tags
 
-    while (ETHERTYPE_IS_VLAN(eth_type) && offset < pkt.len()) {
-        const ether80211q_t* qType = (const ether80211q_t*)(pkt.data() + offset);
-        eth_type = ntohs(qType->protoType);
-        offset += sizeof(ether80211q_t);
-    }
+    // while (ETHERTYPE_IS_VLAN(eth_type) && offset < pkt.len()) {
+    //     const ether80211q_t* qType = (const ether80211q_t*)(pkt.data() + offset);
+    //     eth_type = ntohs(qType->protoType);
+    //     offset += sizeof(ether80211q_t);
+    // }
 
-    if (UNLIKELY(eth_type != ETH_P_IP && eth_type != ETH_P_IPV6))
-        return GPRC_UNKNOWN_ETHERTYPE; // not supported at this time
+    // if (UNLIKELY(eth_type != ETH_P_IP && eth_type != ETH_P_IPV6))
+    //     return GPRC_UNKNOWN_ETHERTYPE; // not supported at this time
 
     // parse IPv4/v6 layer
-
     return do_ip_layer_parse(pkt, offset, offsetOut, ipver, len_after_ip_start, info);
 }
 
@@ -219,8 +224,9 @@ ParserRetCode_t get_transport_start_offset(const Packet& pkt,
 {
     int ipStartOffset = 0, ipver = 0, len_after_ip_start = 0;
     ParserRetCode_t ret = get_ip_start_offset(pkt, &ipStartOffset, &ipver, &len_after_ip_start, info);
-    if (UNLIKELY(ret != GPRC_VALID_PKT))
+    if (UNLIKELY(ret != GPRC_VALID_PKT)) {
         return ret;
+    }
 
     return do_transport_layer_parse(pkt, ipStartOffset, ipver, len_after_ip_start, offsetTransportOut,
         ipprotOut, len_after_transport_start, info);
