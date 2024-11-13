@@ -152,7 +152,7 @@ public:
     size_t len() const
     {
         if (m_pcap_header)
-            return m_pcap_header->caplen;
+            return m_pcap_header->len;
         else
             return 0;
     }

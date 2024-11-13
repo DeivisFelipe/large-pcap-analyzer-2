@@ -52,6 +52,9 @@
 #include <string>
 #include <unistd.h>
 #include <vector>
+#include <iostream>
+
+using namespace std;
 
 //------------------------------------------------------------------------------
 // Static Functions
@@ -478,7 +481,6 @@ bool process_file(
             }
         } else {
             // standard mode: do all the processing in 1 pass
-
             if (!process_pcap_handle(infile.c_str(), pcap_handle_in, filterToUse, pktprocessor, pcap_dumper, nloadedOUT, nmatchingOUT))
                 return false;
         }

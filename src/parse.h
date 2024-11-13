@@ -44,7 +44,6 @@
 
 typedef enum {
     GPRC_VALID_PKT = 0,
-
     GPRC_UNKNOWN_ETHERTYPE = -1,
     GPRC_NOT_GTPU_PKT = -2,
     GPRC_TOO_SHORT_PKT = -3,

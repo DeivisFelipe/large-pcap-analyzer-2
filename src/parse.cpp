@@ -62,8 +62,10 @@ static ParserRetCode_t do_ip_layer_parse(const Packet& pkt, int offset,
     uint16_t ip_hdr_len = 0;
     switch (ip->ip_v) {
     case 4:
-        if (UNLIKELY(pkt.len() < (offset + sizeof(struct ip))))
+        if (UNLIKELY(pkt.len() < (offset + sizeof(struct ip)))) {
+            cout << "Packet too short" << endl;
             return GPRC_TOO_SHORT_PKT; // Packet too short
+        }
 
         ip_total_len = ntohs(ip->ip_len); // IMPORTANT: in IPv4 the "ip_len" does include the size of the IPv4 header!
         ip_hdr_len = (uint16_t)(ip->ip_hl) * 4;
@@ -75,8 +77,10 @@ static ParserRetCode_t do_ip_layer_parse(const Packet& pkt, int offset,
         break;
 
     case 6:
-        if (UNLIKELY(pkt.len() < (offset + sizeof(struct ip6_hdr))))
+        if (UNLIKELY(pkt.len() < (offset + sizeof(struct ip6_hdr)))) {
+            cout << "Packet too short" << endl;
             return GPRC_TOO_SHORT_PKT; // Packet too short
+        }
 
         ip_total_len = sizeof(struct ip6_hdr) + ntohs(ip6->ip6_ctlun.ip6_un1.ip6_un1_plen); // IMPORTANT: in IPv6 the "ip6_un1_plen" field
             // does not include the size of the IPv6 header!
@@ -89,11 +93,14 @@ static ParserRetCode_t do_ip_layer_parse(const Packet& pkt, int offset,
         break;
 
     default:
+        cout << "Invalid IP version" << endl;
         return GPRC_INVALID_PKT; // wrong packet
     }
 
-    if (UNLIKELY(ip_hdr_len >= ip_total_len))
+    if (UNLIKELY(ip_hdr_len >= ip_total_len)) {
+        cout << "Invalid IP header length" << endl;
         return GPRC_INVALID_PKT; // wrong packet
+    }
 
     // ok, found the offset of IPv4/IPv6 layer
 
@@ -194,23 +201,27 @@ ParserRetCode_t get_ip_start_offset(const Packet& pkt, int* offsetOut,
 
     // parse Ethernet layer
 
-    // if (UNLIKELY(pkt.len() < sizeof(struct ether_header)))
-    //     return GPRC_TOO_SHORT_PKT; // Packet too short
+    if (UNLIKELY(pkt.len() < sizeof(struct ether_header))){
+        cout << "Packet too short" << endl;
+        return GPRC_TOO_SHORT_PKT; // Packet too short
+    }
 
-    // const struct ether_header* ehdr = (const struct ether_header*)pkt.data();
-    // uint16_t eth_type = ntohs(ehdr->ether_type);
-    // offset = sizeof(struct ether_header);
+    const struct ether_header* ehdr = (const struct ether_header*)pkt.data();
+    uint16_t eth_type = ntohs(ehdr->ether_type);
+    offset = sizeof(struct ether_header);
 
-    // // parse VLAN tags
+    // parse VLAN tags
 
-    // while (ETHERTYPE_IS_VLAN(eth_type) && offset < pkt.len()) {
-    //     const ether80211q_t* qType = (const ether80211q_t*)(pkt.data() + offset);
-    //     eth_type = ntohs(qType->protoType);
-    //     offset += sizeof(ether80211q_t);
-    // }
+    while (ETHERTYPE_IS_VLAN(eth_type) && offset < pkt.len()) {
+        const ether80211q_t* qType = (const ether80211q_t*)(pkt.data() + offset);
+        eth_type = ntohs(qType->protoType);
+        offset += sizeof(ether80211q_t);
+    }
 
-    // if (UNLIKELY(eth_type != ETH_P_IP && eth_type != ETH_P_IPV6))
-    //     return GPRC_UNKNOWN_ETHERTYPE; // not supported at this time
+    if (UNLIKELY(eth_type != ETH_P_IP && eth_type != ETH_P_IPV6)) {
+        cout << "Provavelmente não tem frame ethernet" << endl;
+        return GPRC_UNKNOWN_ETHERTYPE; // not supported at this time
+    }
 
     // parse IPv4/v6 layer
     return do_ip_layer_parse(pkt, offset, offsetOut, ipver, len_after_ip_start, info);
