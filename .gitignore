@@ -16,3 +16,4 @@ latest
 parts/
 prime/
 snap/.snapcraft/
+.history
